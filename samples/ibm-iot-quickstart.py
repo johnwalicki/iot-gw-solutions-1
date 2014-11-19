@@ -51,7 +51,7 @@ class CPUutil(object):
 cpuutil = CPUutil()
 
 
-macAddress = hex(uuid.getnode())[2:-1]
+macAddress = format(long(macAddress, 16), ‘016x’)
 #remind the user of the mac address further down in code (post 'connecitng to QS')
 
 #Set the variables for connecting to the Quickstart service
