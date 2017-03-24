@@ -16,6 +16,11 @@ import time
 import client as mqtt
 import json
 import uuid
+import ibmiotf
+import ibmiotf.device
+from time import sleep
+import signal
+import sys
 
 
 #Class for retrieving CPU % utilisation
@@ -52,22 +57,34 @@ cpuutil = CPUutil()
 
 macAddress = hex(uuid.getnode())[2:-1]
 macAddress = format(long(macAddress, 16),'012x')
-#remind the user of the mac address further down in code (post 'connecitng to QS')
+#Remind the user of the mac address further down in code (post 'connecting to WIoTP')
 
-#Set the variables for connecting to the Quickstart service
+#Share the name of the Configuration File to connect to the WIoTP as a Registered Device
+deviceFile="device.cfg"
+
+# Set a parameter that helps differentiate the connection to WIoTP, either as a Registered or as a QuickStart service
+fileFound=""
+
+#Set the values for variables to connect to the WIoTP using Quickstart service
 organization = "quickstart"
 deviceType = "iotsample-gateway"
+deviceId = "device01"
 broker = ""
 topic = "iot-2/evt/status/fmt/json"
 username = ""
 password = ""
 
-
+#Raise exception, if the contents do not exist
 error_to_catch = getattr(__builtins__,'FileNotFoundError', IOError)
+
+#The following code snippet looks for the Config file in the `pwd`
+#Tries to open the Config file and read through the values of the configuration parameters
+#If it doesn't find the Config file, it then switches to connect to the Platform using QuickStart service
 
 try:
 
-		file_object = open("./device.cfg")
+		#file_object = open("device.cfg")
+		file_object = open(deviceFile)
 		
 		for line in file_object:
 				
@@ -87,12 +104,13 @@ try:
 						print("please check the format of your config file") #will want to repeat this error further down if their connection fails?
 		
 		file_object.close()
-										
+		fileFound = "true"
 		print("Configuration file found - connecting to the registered service")
 		
 except error_to_catch:
 		print("No config file found, connecting to the Quickstart service")
 		print("MAC address: " + macAddress)
+		fileFound = "false"
 
 
 #Creating the client connection
@@ -100,30 +118,42 @@ except error_to_catch:
 clientID = "d:" + organization + ":" + deviceType + ":" + macAddress
 broker = organization + ".messaging.internetofthings.ibmcloud.com"
 
-mqttc = mqtt.Client(clientID)
+# Define a method that helps publish the event(s) at every 5 second interval
+def eventLoop():
+#	       while true:
+		 	cpuutilvalue = cpuutil.get()
+		      	print cpuutilvalue
 
-#Set authentication values, if connecting to registered service
-if username is not "":
-		mqttc.username_pw_set(username, password=password)
+                	# msg = json.JSONEncoder().encode({"d":{"cpuutil":cpuutilvalue}})
 
-mqttc.connect(host=broker, port=1883, keepalive=60)
+                	msg = {"d":{"cpuutil":cpuutilvalue}}
 
+                	deviceClient.publishEvent("cpuUtil","json", msg, qos=0)
+                	print "message published"
 
-#Publishing to IBM Internet of Things Foundation
-mqttc.loop_start() 
+                	time.sleep(5)
+			pass
 
-while mqttc.loop() == 0:
-	
-		cpuutilvalue = cpuutil.get()
-		print cpuutilvalue
+# Define a method that sets the Username and Password, while initiating the connection using QuickStart Service
+def username_pw_set(self, username, password=None):
+		self._username = username.encode('utf-8')
+        	self._password = password
 
-		msg = json.JSONEncoder().encode({"d":{"cpuutil":cpuutilvalue}})
+# 'fileFound' is set to 'true', if the Config file is located within the `pwd`
+if fileFound == "true":
+		options = ibmiotf.device.ParseConfigFile(deviceFile)
+		deviceClient = ibmiotf.device.Client(options)
+		#print("(Press Ctrl+C to disconnect)")
+		deviceClient.connect()
 		
-		mqttc.publish(topic, payload=msg, qos=0, retain=False)
-		print "message published"
-
-		time.sleep(5)
-		pass
-
-
-
+		while 0 == 0:
+				eventLoop()
+# The 'else' condition is invoked, if the code fails to find a Config file, kickstarting connection using QuickStart service
+else:
+				options = {"org": organization, "type": deviceType, "id": deviceId, "auth-method": username, "auth-token": password}
+				deviceClient = ibmiotf.device.Client(options)
+				deviceClient.connect()
+				while 0 == 0:
+						eventLoop()
+#Marking the completion of the Program here
+print("Connection Process Completed Successfully")
