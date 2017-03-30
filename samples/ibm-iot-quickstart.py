@@ -68,7 +68,7 @@ fileFound=""
 #Set the values for variables to connect to the WIoTP using Quickstart service
 organization = "quickstart"
 deviceType = "iotsample-gateway"
-deviceId = "device01"
+deviceId = macAddress
 broker = ""
 topic = "iot-2/evt/status/fmt/json"
 username = ""
