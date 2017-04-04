@@ -13,7 +13,6 @@
 ## A sample IBM Internet of Things Foundation Service client for Intel Internet of Things Gateway Solutions
 
 import time
-import client as mqtt
 import json
 import uuid
 import ibmiotf
